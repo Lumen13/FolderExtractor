@@ -3,30 +3,34 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:FolderExtractor"
         mc:Ignorable="d"
-        Title="MainWindow" Height="300" Width="700">
+        Title="MainWindow" Height="350" Width="700">
     <Grid>
         <Button 
+            x:Name="ElChoose"
             Height="40"               
             Width="240"                
             Click="Choose" 
+            IsEnabled="True"
             Margin="180,37,180,107">
             Choose Folder
         </Button>
         <Button 
+            x:Name="ElBegin"
             Height="40"                
             Width="240"
-            Click="Begin" 
+            Click="Begin"
+            IsEnabled="False"
             Margin="322,107,38,37">
             Begin
         </Button>
         <Button 
+            x:Name="ElCancel"
             Height="40"
             Width="240"
             Click="Cancel" 
-            Margin="46,107,314,37"
-            IsEnabled="False">
+            IsEnabled="False"
+            Margin="46,107,314,37">
             Cancel
         </Button>
         <TextBlock 
@@ -35,8 +39,7 @@
             Width="600"
             TextAlignment="Center" 
             Margin="50,212,50,52"
-            Visibility="Hidden">
-            Progress:
+            Visibility="Visible">
         </TextBlock>
         <ProgressBar
             x:Name="ElProgressBar"

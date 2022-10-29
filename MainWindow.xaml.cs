@@ -2,8 +2,9 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Windows;
-using System.Windows.Controls;
+using System.Windows.Forms;
 
 namespace FolderExtractor
 {
@@ -12,8 +13,7 @@ namespace FolderExtractor
     /// </summary>
     public partial class MainWindow : Window
     {
-        private System.Windows.Forms.DialogResult _dialogResult =
-            System.Windows.Forms.DialogResult.None;
+        private DialogResult _dialogResult = System.Windows.Forms.DialogResult.None;
         private string _selectedPath = string.Empty;
         private int _numberOfDuplicates = 0;
 
@@ -24,51 +24,92 @@ namespace FolderExtractor
 
         private void Choose(object sender, RoutedEventArgs e)
         {
-            System.Windows.Forms.FolderBrowserDialog folderBrowser = new();
+            FolderBrowserDialog folderBrowser = new();
 
             var result = folderBrowser.ShowDialog();
 
             _dialogResult = result;
             _selectedPath = folderBrowser.SelectedPath;
+
+            if (IsDialogResultOk())
+            {
+                ElBegin.IsEnabled = true;
+            }
         }
 
         private void Begin(object sender, RoutedEventArgs e)
         {
-            if (_dialogResult == System.Windows.Forms.DialogResult.OK
-                && !string.IsNullOrWhiteSpace(_selectedPath) && sender is Button button)
+            if (IsDialogResultOk() && !string.IsNullOrWhiteSpace(_selectedPath))
             {
-                button.IsEnabled = false;
-                List<string> files = RemoveDuplicateSongs();
-                string newFolderPath = CreateNewDesktopFolder();
-                CopyWithOverwrite(newFolderPath, files);
+                var currentThread = Thread.CurrentThread;
+
+                ElBegin.IsEnabled = false;
+                ElChoose.IsEnabled = false;
+                ElCancel.IsEnabled = true;
+                ElProgressBar.Visibility = Visibility.Visible;
+                ElProgressText.Visibility = Visibility.Visible;
+
+                new Thread(() =>
+                {
+                    Work();
+                }).Start();
             }
+        }
+
+        private void Cancel(object sender, RoutedEventArgs e)
+        {
+            ShutDown();
+        }
+
+        private void Work()
+        {
+            List<string> files = RemoveDuplicatesByName();
+            string newFolderPath = CreateNewDesktopFolder();
+            CopyWithOverwrite(newFolderPath, files);
         }
 
         private void CopyWithOverwrite(string newFolderPath, List<string> files)
         {
+            var dispatcher = System.Windows.Application.Current.Dispatcher;
+            float _progressBarStepSize = 100f / files.Count;
+
             try
             {
+                dispatcher.BeginInvoke((MethodInvoker)(() =>
+                {
+                    ElProgressBar.Value += ElProgressBar.Value;
+                }));
+
                 foreach (var file in files)
                 {
                     File.Copy(file, newFolderPath + Path.GetFileName(file), true);
+
+                    dispatcher.BeginInvoke((MethodInvoker)(() =>
+                    {
+                        ElProgressBar.Value += _progressBarStepSize;
+                        ElProgressText.Text = $"Progress - {Math.Round(ElProgressBar.Value)}%";
+                    }));
                 }
 
-                MessageBox.Show($@"
-                    {files.Count} files was copied,
-                    {_numberOfDuplicates} duplicate-naming files was ignored,
+                System.Windows.MessageBox.Show($@"
+                    {files.Count} file(s) was copied,
+                    {_numberOfDuplicates} duplicate-naming file(s) was ignored,
                     new folder size is about {GetFilesWeight(newFolderPath)}Mb
                 ",
                 "Success!");
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Error!");
+                System.Windows.MessageBox.Show(ex.Message, "Error!");
                 throw;
             }
             finally
             {
                 _dialogResult = System.Windows.Forms.DialogResult.Cancel;
-                ShutDown();
+                dispatcher.BeginInvoke((MethodInvoker)(() =>
+                {
+                    ShutDown();
+                }));
             }
         }
 
@@ -103,12 +144,12 @@ namespace FolderExtractor
                 }
                 catch (IOException iex)
                 {
-                    Console.WriteLine("IO Error: " + iex.Message);
+                    System.Windows.MessageBox.Show("IO Error: " + iex.Message, "Error!");
                     throw;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("General Error: " + ex.Message);
+                    System.Windows.MessageBox.Show("General Error: " + ex.Message, "Error!");
                     throw;
                 }
             }
@@ -116,7 +157,7 @@ namespace FolderExtractor
             return path;
         }
 
-        private List<string> RemoveDuplicateSongs()
+        private List<string> RemoveDuplicatesByName()
         {
             List<string> files = Directory.GetFiles(
                 _selectedPath, "*.*", SearchOption.AllDirectories).ToList();
@@ -153,13 +194,11 @@ namespace FolderExtractor
             return files;
         }
 
+        private bool IsDialogResultOk() => _dialogResult == System.Windows.Forms.DialogResult.OK;
+
         private static void ShutDown()
         {
-            Application.Current.Shutdown();
-        }
-
-        private void Cancel(object sender, RoutedEventArgs e)
-        {
+            System.Windows.Application.Current.Shutdown();
         }
     }
 }
